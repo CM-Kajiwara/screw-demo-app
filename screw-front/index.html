@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>ネジをWebアプリ経由で分類させてみた</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+</head>
+
+<body>
+    <div class="field">
+        <video id="player" controls autoplay width=320 height=240></video>
+        <button id="capture">Capture</button>
+        <button id="send">Send</button>
+        <canvas id="snapshot" width=320 height=240></canvas>
+        <img hidden id="image" />
+        
+        <pre id="response">レスポンス</pre>
+    </div>
+</body>
+<script>
+    const player = document.getElementById('player');
+    const snapshotCanvas = $('#snapshot');
+    const captureButton = document.getElementById('capture');
+    const sendButton = document.getElementById('send');
+    const img = document.getElementById('image');
+    let screwImageBlob;
+    let imageCapture;
+    const imageWidth = 320
+    const imageHeight = 240
+
+
+    var handleSuccess = function(stream) {
+        // Attach the video stream to the video element and autoplay.
+        player.srcObject = stream;
+        imageCapture = new ImageCapture(stream.getVideoTracks()[0]);
+        getCapabilities();
+    };
+    function getCapabilities() {
+        imageCapture.getPhotoCapabilities().then(function(capabilities) {
+            console.log('Camera capabilities:', capabilities);
+            if (capabilities.zoom.max > 0) {
+                zoomInput.min = capabilities.zoom.min;
+                zoomInput.max = capabilities.zoom.max;
+                zoomInput.value = capabilities.zoom.current;
+                zoomInput.classList.remove('hidden');
+            }
+        }).catch(function(error) {
+            console.log('getCapabilities() error: ', error);
+        });
+    }
+
+    captureButton.addEventListener('click', function() {
+        imageCapture.takePhoto().then(function(blob) {
+            screwImageBlob = blob
+            console.log('Took photo:', blob);
+            img.classList.remove('hidden');
+            img.src = URL.createObjectURL(blob);
+        }).catch(function(error) {
+            console.log('takePhoto() error: ', error);
+        });
+
+    });
+    sendButton.addEventListener('click', function() {
+        var url = 'https://i1a4du0l2h.execute-api.ap-northeast-1.amazonaws.com/dev/list_screw_detections'
+        var context = snapshotCanvas[0].getContext('2d');
+        $("#response").text("送信！")
+        fetch(url, {
+            method: 'POST',
+            body: screwImageBlob
+        }).then(function(response) {
+            return response.json();
+        }).then(function(json) {
+            var image = new Image();
+            var reader = new FileReader();
+            var results = json
+            $("#response").text(JSON.stringify(json))
+            reader.onload = function(evt) {
+                image.onload = function() {
+                    let imageWidthRatio = image.width / imageWidth
+                    let imageHeightRatio = image.height / imageHeight
+                    snapshotCanvas[0].width = imageWidth
+                    snapshotCanvas[0].height = imageHeight
+                    context.drawImage(image, 0, 0,image.width,image.height,0,0,imageWidth,imageHeight); //canvasに画像を転写
+                    results.forEach(result => {
+                        context.font = "20px gradient";
+                        var resultXmin = result.xmin / imageWidthRatio;
+                        var resultYmin = result.ymin / imageHeightRatio;
+                        var resultXmax = result.xmax / imageWidthRatio;
+                        var resultYmax = result.ymax / imageHeightRatio
+                        context.fillText(result.class_name, resultXmin , resultYmin - 3);
+                        context.strokeRect(resultXmin, resultYmin, resultXmax - resultXmin, resultYmax - resultYmin)
+                    });
+                }
+                image.src = evt.target.result;
+            }
+            reader.readAsDataURL(screwImageBlob);
+        });
+    })
+
+    const constraints = {
+        advanced: [{
+            facingMode: "environment"
+        }]
+    };
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: { ideal: "environment" }
+        }
+    })
+        .then(handleSuccess);
+</script>
+
+</html>

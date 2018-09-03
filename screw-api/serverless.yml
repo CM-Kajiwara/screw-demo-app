@@ -1,0 +1,37 @@
+
+service: screwAPI # NOTE: update this with your service name
+
+provider:
+  name: aws
+  runtime: python3.6
+  region: ap-northeast-1 
+  environment: 
+    OBJECT_DETECTION_ENDPOINT: ${env:OBJECT_DETECTION_ENDPOINT}
+    SCREW_CLASSIFER_ENDPOINT: ${env:SCREW_CLASSIFER_ENDPOINT}
+
+functions:
+  list_screw_detections:
+    handler: screw_handler.list_screw_detections_handler
+    events:
+      - http:
+          path: list_screw_detections
+          method: post
+          cors: true
+
+custom:
+  apigwBinary:
+    types:           #list of mime-types
+      - 'image/jpeg'
+  pythonRequirements:
+    dockerizePip: true
+
+plugins:
+  - serverless-python-requirements
+  - serverless-apigw-binary
+
+package:
+  exclude:
+    - .git/**
+    - node_modules
+    - node_modules/**
+    - __pycache__
