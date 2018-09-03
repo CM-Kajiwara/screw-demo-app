@@ -30,6 +30,7 @@
     let imageCapture;
     const imageWidth = 320
     const imageHeight = 240
+    const url = '(API GatewayにデプロイされたAPIのアドレス)'
 
 
     var handleSuccess = function(stream) {
@@ -64,7 +65,6 @@
 
     });
     sendButton.addEventListener('click', function() {
-        var url = 'https://i1a4du0l2h.execute-api.ap-northeast-1.amazonaws.com/dev/list_screw_detections'
         var context = snapshotCanvas[0].getContext('2d');
         $("#response").text("送信！")
         fetch(url, {
